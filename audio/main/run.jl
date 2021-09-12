@@ -37,14 +37,14 @@ end
 initial_trs = [AI.generate_initial_tr(trr)[1] for i=1:1]
 println("Initial traces generated")
 
-# (generic_times, generic_likelihoods) = get_avg_likelihoods(initial_trs, AI.do_generic_inference, 200)
-# println("did generic inference")
-# display(plot(generic_times, generic_likelihoods))
+(generic_times, generic_likelihoods) = get_avg_likelihoods(initial_trs, AI.do_generic_inference, 200)
+println("did generic inference")
+display(plot(generic_times, generic_likelihoods))
 
 (bd_times, bd_likelihoods) = get_avg_likelihoods(initial_trs, AI.drift_smartbd_inference, 20)
 println("did birth/death inference")
 plot(bd_times, bd_likelihoods)
 
-# (sm_times, sm_likelihoods) = get_avg_likelihoods(initial_trs, AI.drift_smartsmbd_inference, 400)
-# println("did split/merge+birth/death inference")
-# plot(sm_times, sm_likelihoods)
+(sm_times, sm_likelihoods) = get_avg_likelihoods(initial_trs, AI.drift_smartsmbd_inference, 400)
+println("did split/merge+birth/death inference")
+plot(sm_times, sm_likelihoods)

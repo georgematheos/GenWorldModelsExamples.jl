@@ -1,4 +1,5 @@
-using Serialization, Dates
+using Serialization, Dates, PyPlot
+pygui(true)
 
 #=
 Outputs matrices where each column is a run for one initial trace,
@@ -76,7 +77,7 @@ end
 ### Record data ###
 function record_likelihoods!(generate_initial_trs, run_specs, NUM_ITERS;
     filename_prefix=nothing,
-    filename=(isnothing(filename_prefix) ? nothing : filename_prefix * Dates.format(Dates.now(), "yyyy-mm-dd--HH-MM-SS")*".jld")
+    filename=(isnothing(filename_prefix) ? nothing : filename_prefix * Dates.format(Dates.now(), "yyyy-mm-dd--HH-MM-SS")*".jld"),
     running_times=nothing,
     running_likelihoods=nothing,
     num_cycles=1
@@ -107,3 +108,4 @@ function record_likelihoods!(generate_initial_trs, run_specs, NUM_ITERS;
 
     return (running_times, running_likelihoods, filename)
 end
+println(record_likelihoods!)
