@@ -75,7 +75,6 @@ MIN_NUM_SOURCES = 0
 NOISE_PRIOR_PROB = 0.4
 
 @kernel function smart_birth_death_kernel(tr)
-    @info("in kernel")
     # this may involve untraced randomness
     birth_to_score = sample_and_score_possible_births(tr)
     death_to_score = score_possible_deaths(tr)
@@ -83,14 +82,11 @@ NOISE_PRIOR_PROB = 0.4
     birthscore, deathscore = reduce(+, values(birth_to_score), init=0.), reduce(+, values(death_to_score), init=0.)
     birthprior = (birthscore) / (birthscore + deathscore)
     birthprior = (birthprior + BIRTH_PRIOR * PROB_RANDOMLY_CHOOSE_BD) / (1 + PROB_RANDOMLY_CHOOSE_BD)
-    @info("outcomes scored")
     
     # sample whether to do the birth, factoring in the max and min possible number of objects
     do_birth ~ bernoulli(get_capped_birth_prior(tr, birthprior, birth_to_score))
-    @info("do_birth = $do_birth")
     if do_birth
         do_smart_birth ~ bernoulli(SMART_BIRTH_PRIOR)
-        @info("do_smart_birth = $do_smart_birth")
     else
         do_smart_birth ~ exactly(nothing)
     end
@@ -112,17 +108,14 @@ NOISE_PRIOR_PROB = 0.4
         @assert NOISE_PRIOR_PROB >= 0 && 1 - NOISE_PRIOR_PROB >= 0
         objtype ~ unnormalized_categorical(Dict(noise => NOISE_PRIOR_PROB, tone => (1 - NOISE_PRIOR_PROB)))
     end
-    @info("sampled action / objtype")
 
     if do_birth
         if do_smart_birth
             proptr ~ sample_properties(objtype, action, scene_length(tr))
-            @info("smart birth properties sampled")
         else
             # regenerate properties
         end
         idx ~ uniform_discrete(1, num_sources(tr) + 1)
-        @info("idx = $idx")
 
         return birth_move_spec(tr, idx, do_smart_birth ? action : nothing, objtype == noise, do_smart_birth, do_birth, objtype, do_smart_birth ? proptr : nothing)
     else
@@ -134,7 +127,6 @@ end
 function birth_move_spec(tr, idx, birth_action, is_noise, do_smart_birth, do_birth, objtype, properties_tr)
     propval(addr) = KernelDSL.get_undualed(properties_tr, addr)
     src = AudioSource(idx)
-    println("in birth move spec")
     return (
         WorldUpdate!(tr, Create(src), regenchoicemap(
             @set(is_noise[src], is_noise), (

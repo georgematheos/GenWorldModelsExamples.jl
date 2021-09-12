@@ -4,11 +4,8 @@ include("smart_birth_death.jl")
 include("smart_split_merge.jl")
 
 function drift_smartbd_iter(tr)
-    println("about to do birth/death MH")
     tr, _ = mh(tr, smart_birth_death_kernel; check=false)
-    println("B/D complete; about to do drift sweep")
     tr = drift_pass(tr)
-    println("drift sweep completed")
     return tr
 end
 
