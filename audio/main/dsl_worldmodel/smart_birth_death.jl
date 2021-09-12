@@ -1,3 +1,5 @@
+KernelDSL = GenWorldModels.GenTraceKernelDSL
+
 abstract type SourceType end
 struct Noise <: SourceType end
 struct Tone <: SourceType end
@@ -8,9 +10,9 @@ Base.isapprox(a::SourceType, b::SourceType) = a === b
 abstract type Action end
 struct Birth <: Action
     type::SourceType
-    amp_or_erb::Float64
-    onset::Float64
-    duration::Float64
+    amp_or_erb
+    onset
+    duration
 end
 struct Death <: Action
     type::SourceType
@@ -24,14 +26,21 @@ Base.isapprox(::Action, ::Action) = false
 # Trace getters #
 #################
 num_sources(tr) = @get_number(tr, AudioSource())
-source_type(tr, i) = @get(tr, is_noise[AudioSource(i)]) ? noise : tone
+source_type(tr, i) =
+    try
+        @get(tr, is_noise[AudioSource(i)]) ? noise : tone 
+    catch e
+        display(get_submap(get_choices(tr), :world))
+        throw(e)
+    end
 scene_length(tr) = get_args(tr)[1]
 underlying_gram(tr) = get_retval(tr)[1]
-observed_gram(tr) = tr[@obsmodel() => :scene]
+observed_gram(tr::KernelDSL.TraceToken) = KernelDSL.get_undualed(tr, @obsmodel() => :scene)
+observed_gram(tr::Gen.Trace) = tr[@obsmodel() => :scene]
 error_gram(tr) = observed_gram(tr) - underlying_gram(tr)
 
-function birth_for_source_at_idx(tr, i)
-    getprop(addr) = @get(tr, waves[AudioSource(i)] => addr)
+function birth_for_source_at_idx(tr, i; need_dual=true)
+    getprop(addr) = need_dual ? @get(tr, waves[AudioSource(i)] => addr) : KernelDSL.get_undualed(tr, @addr(waves[AudioSource(i)] => addr))
     type = source_type(tr, i)
     Birth(
         type,
@@ -66,6 +75,7 @@ MIN_NUM_SOURCES = 0
 NOISE_PRIOR_PROB = 0.4
 
 @kernel function smart_birth_death_kernel(tr)
+    @info("in kernel")
     # this may involve untraced randomness
     birth_to_score = sample_and_score_possible_births(tr)
     death_to_score = score_possible_deaths(tr)
@@ -73,12 +83,16 @@ NOISE_PRIOR_PROB = 0.4
     birthscore, deathscore = reduce(+, values(birth_to_score), init=0.), reduce(+, values(death_to_score), init=0.)
     birthprior = (birthscore) / (birthscore + deathscore)
     birthprior = (birthprior + BIRTH_PRIOR * PROB_RANDOMLY_CHOOSE_BD) / (1 + PROB_RANDOMLY_CHOOSE_BD)
-
+    @info("outcomes scored")
+    
     # sample whether to do the birth, factoring in the max and min possible number of objects
     do_birth ~ bernoulli(get_capped_birth_prior(tr, birthprior, birth_to_score))
-
+    @info("do_birth = $do_birth")
     if do_birth
         do_smart_birth ~ bernoulli(SMART_BIRTH_PRIOR)
+        @info("do_smart_birth = $do_smart_birth")
+    else
+        do_smart_birth ~ exactly(nothing)
     end
 
     # except in a dumb birth move, we need to score our possibilities and select one
@@ -88,7 +102,7 @@ NOISE_PRIOR_PROB = 0.4
         type_to_score = get_type_to_score(action_to_score)
         if isempty(type_to_score)
             @warn("Doing a $((do_birth ? "birth" : "death")) and have empty type_to_score!")
-            @warn("birth_to_score was $birth_to_score")
+            @warn("action_to_score was $action_to_score")
         end
         objtype ~ unnormalized_categorical(type_to_score)
 
@@ -98,60 +112,68 @@ NOISE_PRIOR_PROB = 0.4
         @assert NOISE_PRIOR_PROB >= 0 && 1 - NOISE_PRIOR_PROB >= 0
         objtype ~ unnormalized_categorical(Dict(noise => NOISE_PRIOR_PROB, tone => (1 - NOISE_PRIOR_PROB)))
     end
+    @info("sampled action / objtype")
 
     if do_birth
         if do_smart_birth
-            properties ~ sample_properties(objtype, action, scene_length(tr))
+            proptr ~ sample_properties(objtype, action, scene_length(tr))
+            @info("smart birth properties sampled")
         else
             # regenerate properties
         end
         idx ~ uniform_discrete(1, num_sources(tr) + 1)
+        @info("idx = $idx")
 
-        return birth_move_spec(idx, is_noise, do_smart_birth, do_birth, objtype, properties)
+        return birth_move_spec(tr, idx, do_smart_birth ? action : nothing, objtype == noise, do_smart_birth, do_birth, objtype, do_smart_birth ? proptr : nothing)
     else
-        reverse = {:reversing_randomness} ~ sample_death_reversing_randomness(tr, objtype, action)
-        return death_move_spec(idx, objtype, reverse)
+        reversing_randomness ~ sample_death_reversing_randomness(tr, objtype, action)
+        return death_move_spec(tr, action.idx, objtype, reversing_randomness)
     end
 end
 
-function birth_move_spec(idx, is_noise, do_smart_birth, do_birth, objtype, (onset, duration, amp, erb))
+function birth_move_spec(tr, idx, birth_action, is_noise, do_smart_birth, do_birth, objtype, properties_tr)
+    propval(addr) = KernelDSL.get_undualed(properties_tr, addr)
     src = AudioSource(idx)
+    println("in birth move spec")
     return (
-        WorldUpdate!(Create(src), regenchoicemap(
+        WorldUpdate!(tr, Create(src), regenchoicemap(
             @set(is_noise[src], is_noise), (
-                do_smart_birth ? @set(waves[src] => addr, eval(addr)) :
+                do_smart_birth ? @set(waves[src] => addr, propval(addr)) :
                                  @regenerate(waves[src] => addr)
                 for addr in (:onset, :duration, (is_noise ? :amp : :erb))
             )...
         )), choicemap(
-            (:do_birth, !do_birth),
+            (:do_birth, !do_birth), (:do_smart_birth, nothing),
             (:reversing_randomness => :reverse_is_smart, do_smart_birth),
+            (:reversing_randomness => :reverse_birth, do_smart_birth ? birth_action : nothing),
             (:objtype, objtype), (:action, Death(objtype, idx))
         )
     )
 end
-function death_move_spec(idx, objtype, (rev_smart_birth, reverse_birth))
+function death_move_spec(tr, idx, objtype, reversing_randomness)
+    (rev_smart_birth, reverse_birth) = (reversing_randomness[:reverse_is_smart], reversing_randomness[:reverse_birth])
     src = AudioSource(idx)
     bwd_constraints = choicemap(
-        (:do_smart_birth, rev_smart_birth),
+        (:do_birth, true), (:do_smart_birth, rev_smart_birth),
         (:idx, src.idx), (:objtype, objtype),
         (rev_smart_birth ? (
              (:properties => addr, @get(tr, waves[src] => addr)) 
-            for addr in (:onset, :duration, (is_noise ? :amp : :erb))
+            for addr in (:onset, :duration, (objtype == noise ? :amp : :erb))
         ) : ())...,
-        (rev_smart_birth ?  (:action, reverse_birth) : ())...
+        (:properties => (objtype == noise ? :erb : :amp), nothing),
+        (rev_smart_birth ?  ((:action, reverse_birth),) : ())...
     )
-    regenerated_in_reverse = rev_smart_birth ? EmptySelection() : select(@addr(waves[src] => addr) for addr in (:onset, :duration, (is_noise ? :amp : :erb)))
-    return (WorldUpdate!(Delete(src)), (bwd_constraints, regenerated_in_reverse))
+    regenerated_in_reverse = rev_smart_birth ? EmptySelection() : select(@addr(waves[src] => addr) for addr in (:onset, :duration, (objtype == noise ? :amp : :erb)))
+    return (WorldUpdate!(tr, Delete(src)), (bwd_constraints, regenerated_in_reverse))
 end
 
 include("../distributions.jl")
 @gen function sample_properties(objtype, action::Birth, scene_length)
     if objtype === noise
         amp ~ normal(action.amp_or_erb, AMP_STD)
-        erb = nothing
+        erb ~ exactly(nothing)
     else
-        amp = nothing
+        amp ~ exactly(nothing)
         erb ~ truncated_normal(action.amp_or_erb, ERB_STD, MIN_ERB, MAX_ERB)
     end
     onset ~ truncated_normal(action.onset, ONSET_STD, MIN_ONSET(scene_length), MAX_ONSET(scene_length))
@@ -162,7 +184,7 @@ end
 @gen function sample_death_reversing_randomness(tr, objtype, action::Death)
     possible_births = sample_possible_births(tr, Set(action.idx))
     birth_to_score = Dict(
-        b => prob_of_sampling(birth_for_source_at_idx(tr, action.idx), b, scene_length(tr))
+        b => prob_of_sampling(birth_for_source_at_idx(tr, action.idx; need_dual=false), b, scene_length(tr))
         for b in possible_births if b.type == objtype
     )
     
@@ -172,7 +194,7 @@ end
     if reverse_is_smart
         reverse_birth ~ unnormalized_categorical(birth_to_score)
     else
-        reverse_birth = nothing
+        reverse_birth ~ exactly(nothing)
     end
     return (reverse_is_smart, reverse_birth)
 end
@@ -188,7 +210,7 @@ function Birth(s::Detector.Source)
     )
 end
 
-@gen function sample_and_score_possible_births(tr)
+function sample_and_score_possible_births(tr)
     Dict(
         b => score(tr, b)
         for b in sample_possible_births(tr)
@@ -208,7 +230,7 @@ function underlying_gram_for_tr_without_indices(tr, source_indices_to_ignore)
     end
     (scene_length, steps, sr, wts, gtg_params) = get_args(tr)
     n_samples = Int(floor(scene_length * sr))
-    waves = (tr[:world => :waves => AudioSource(i)] for i=1:tr[:kernel => :n_tones] if !(i in source_indices_to_ignore))
+    waves = (KernelDSL.get_undualed(tr, @addr(waves[AudioSource(i)])) for i=1:@get_number(tr, AudioSource()) if !(i in source_indices_to_ignore))
     underlying_waves_without_deletion = reduce(+, waves; init=zeros(n_samples))
     gram, = gammatonegram(underlying_waves_without_deletion, wts, sr, gtg_params)
     gram
@@ -236,7 +258,7 @@ Score death moves based on the change to the predictive likelihood of the curren
 # as (num_less_than_threshold - num_greater_than_threshold)/area).
 function score(tr, d::Death)
     gram = underlying_gram_for_tr_without_indices(tr, Set(d.idx))
-    logsc = logpdf(AI.noisy_matrix, observed_gram(tr), gram, 1.0)
+    logsc = logpdf(noisy_matrix, observed_gram(tr), gram, 1.0)
     return exp(λ * DEATH_DISCOUNT * logsc)
 end
 """
@@ -297,6 +319,7 @@ The PDF of the proposal sampling the object represented by `output` after select
 function prob_of_sampling(output, detected, scenelength)
     (weight, _) = assess(sample_properties, (output.type, detected, scenelength), choicemap(
         (output.type == noise ? :amp : :erb) => output.amp_or_erb,
+        (output.type == noise ? :erb : :amp) => nothing,
         :onset => output.onset,
         :duration => output.duration
     ))

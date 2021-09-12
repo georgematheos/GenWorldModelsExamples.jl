@@ -1,5 +1,5 @@
 using Gen;
-using Distributions;
+import Distributions;
 
 ### Computation of likelihood which scales linearly 
 struct NoisyMatrix <: Gen.Distribution{Matrix{Float64}} end
