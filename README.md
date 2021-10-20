@@ -4,14 +4,22 @@ This repository contains several examples of inference programs using GenWorldMo
 
 ## Index of Examples
 
-### Most up-to-date models
+### Most mature models
 
 #### audio
 The `audio` folder contains code to infer audio sources underlying an audio file.
 See `audio/README.md` for details.  This is the most up-to-date example in the repository.
 (The other examples do not use the newest modeling and inference DSLs from GenWorldModels.)
 
-### Less up-to-date models
+### Less mature models
+
+### gmm
+The `gmm` folder contains a draft of code in the latest modeling and inference DSLs
+to find clusters of datapoints in a Gaussian mixture model with an unknown number of components.  This is the model shown in Figure 4 in our 2021 AABI paper.
+As of Oct 2021, we have not quite finished debugging the code in the newest DSLs.
+
+The fully-operational code used to run inference and produce the visuals for our 2021 
+AABI paper is available [in this repository](https://github.com/mugamma/gmm).
 
 #### entity-resolution
 The `entity-resolution` folder contains an inference program for inferring the entities
