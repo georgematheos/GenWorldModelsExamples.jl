@@ -37,7 +37,7 @@ model from (if my memory serves correctly) a DARPA challenge project.  The probl
 to find an active link to this online.
 
 #### simpleseismic
-The `simpleseismic` folder contains draft code for the highly-simplified seismic monitoring
+The `simpleseismic` folder contains draft code for the highly-simplified seismic moitoring
 example used in Figure 1 and 2 of our paper on automating involutive MCMC for open-universe models
 using GenWorldModels [Matheos and Lew et al. AABI 2021. "Transforming Worlds: Automated Involutive MCMC
 for Open Universe Probabilistic Models"](http://people.eecs.berkeley.edu/~russell/papers/aabi21-oupm.pdf).

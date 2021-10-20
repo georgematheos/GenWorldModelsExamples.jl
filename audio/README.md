@@ -7,11 +7,13 @@ Maddie Cusimano and Luke Hewitt kindly provided us with their code;
 almost all the code in the `model/`, `params/`, and `tools/` directories
 were provided by them.
 
+`main/run_inference_performance_comparison.jl` is the most up-to-date top-level script to run inference
+in this model.
+It runs different inference programs for audio interpretation, and produces plots comparing their performance.
+(This produces a version of the plot in Figure 3 of our 2021 AABI paper.)
+
 ### File structure
 
-TLDR: `main/run_inference_performance_comparison.jl` is the most up-to-date top-level script which runs different inference programs for audio interpretation, and produces plots comparing their performance.
-
-More details on the directory structure:
 - `demos/` contains some Jupyter notebooks showcasing the model and inference program.  These are not up to date, and use an old version of the inference and modeling DSLs.
 - `model/` contains helper code for the audio model.
 - `params/` contains hyperparameters.
