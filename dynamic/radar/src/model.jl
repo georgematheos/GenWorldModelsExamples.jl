@@ -15,33 +15,37 @@ default_params = (
     mean_num_aircrafts, detection_prob, false_positive_rate,
     initial_pos_std, pos_step_std, initial_vel_std, vel_step_std
 ) begin
+    # @number (static, diffs) T() = (return @arg T)
+
     # In the future we could have the number of aircrafts change over time;
     # for now we will assume it is fixed.
     @number (static, diffs) Aircraft() = (return num ~ poisson(@arg(mean_num_aircrafts)))
 
     # real blip
     @number (static, diffs) function Blip(a::Aircraft, t::Timestep)
-        num ~ bernoulli(@arg(detection_prob))
+        return num ~ bernoulli(@arg(detection_prob))
     end
     # false positive blip
     @number (static, diffs) Blip(::Timestep) = (return num ~ poisson(@arg(false_positive_rate)))
     
     @property function position(a::Aircraft, t::Timestep)
-        if @index(t) == 0
+        if @index(t) == 1
             pos ~ normal(0, @arg(initial_pos_std))
         else
             vₜ = @get(velocity[a, t])
             posₜ₋₁ = @get(position[a, Timestep(@index(t) - 1)])
             pos ~ normal(posₜ₋₁ + vₜ, @arg(pos_step_std))
         end
+        return pos
     end
     @property function velocity(a::Aircraft, t::Timestep)
-        if @index(t) == 0
+        if @index(t) == 1
             vel ~ normal(0, @arg(initial_vel_std))
         else
             vₜ₋₁ = @get(velocity[a, Timestep(@index(t) - 1)])
             vel ~ normal(vₜ₋₁, @arg(vel_step_std))
         end
+        return vel
     end
 
     @property (static) function noisy_position(b::Blip)
@@ -79,3 +83,4 @@ default_params = (
     #     return @map [@get(noisy_image_model[t]) for t in timesteps]
     # end
 end
+@load_generated_functions()
