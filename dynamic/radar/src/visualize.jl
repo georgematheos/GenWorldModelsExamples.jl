@@ -41,14 +41,20 @@ function plot_tracked_assignment!(
 
     for (t, positions) in enumerate(labeled_positions)
         for position in positions
-            push!(objidx_to_positions[position.object_idx][t], Point2f0(position.xy))
+            push!(objidx_to_positions[position.object_idx + 1][t], Point2f0(position.xy))
             alpha = position.is_detected ? 1.0 : 0.3 # fade out undetected aircrafts
-            objidx_to_colors[position.object_idx][t] = RGBA(solid_colors[position.object_idx + 1], alpha)
+            objidx_to_colors[position.object_idx + 1][t] = RGBA(solid_colors[position.object_idx + 1], alpha)
         end
     end
 
-    for (positions, colors) in zip(objidx_to_positions, objidx_to_colors)
-        scatter!(ax, @lift(positions[$fig_t]), markersize=20, color=@lift(colors[$fig_t]))
+    for (i, (positions, colors)) in enumerate(zip(objidx_to_positions, objidx_to_colors))
+        scatter!(
+            ax,
+            @lift(positions[$fig_t]),
+            markersize=20,
+            color=@lift(colors[$fig_t]),
+            marker=(i == 1 ? :xcross : :circle)
+        )
     end
 end
 

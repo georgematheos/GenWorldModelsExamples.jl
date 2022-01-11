@@ -7,6 +7,7 @@ default_params = (
     detection_prob=0.99,
     false_positive_rate=0.3,
     # The initial x and y positions are ~uniform(-initial_pos_range_scale, initial_pos_range_scale)
+    # False positives are also uniform in this range.
     initial_pos_range_scale=100,
     pos_step_std=0.3,
     # the initial x and y vels are ~ uniform(-initial_vel_range_scale, initial_vel_range_scale)
@@ -57,21 +58,33 @@ default_params = (
         return (vx, vy)
     end
 
-    @property (static) function noisy_position(b::Blip)
-        (a, t) = @origin(b)
-        (true_x, true_y) = @get(position[a, t])
-        x_reading ~ normal(true_x, @arg(obs_std))
-        y_reading ~ normal(true_y, @arg(obs_std))
+    @property function noisy_position(b::Blip)
+        o = @origin(b)
+        if length(o) == 2
+            # Real detection
+            (a, t) = o
+            (true_x, true_y) = @get(position[a, t])
+            x_reading ~ normal(true_x, @arg(obs_std))
+            y_reading ~ normal(true_y, @arg(obs_std))
+        else
+            # False positive detection
+            (t,) = o
+            scale = @arg(initial_pos_range_scale)
+            x_reading ~ uniform(-scale, scale)
+            y_reading ~ uniform(-scale, scale)
+        end
         return (x_reading, y_reading)
     end
 
     @property (static) function blip_readings_at_time(t::Timestep)
-        blips = @objects(Blip(Aircraft, t))
-        # TODO: include false positives
+        real_blips = @objects(Blip(Aircraft, t))
+        fp_blips = @objects(Blip(t))
+        blips = union(fp_blips, real_blips)
         
         # set of all readings at this time
         # assume that none of them take the same value, since positions are real values
         readings = @nocollision_setmap (@get(noisy_position[b]) for b in blips)
+
         return readings
     end
 
