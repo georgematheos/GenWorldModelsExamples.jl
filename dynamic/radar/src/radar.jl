@@ -1,0 +1,3 @@
+module Radar
+
+end # module
