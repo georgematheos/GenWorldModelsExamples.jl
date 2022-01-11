@@ -18,8 +18,6 @@ default_params = (
     mean_num_aircrafts, detection_prob, false_positive_rate,
     initial_pos_range_scale, pos_step_std, initial_vel_range_scale, vel_step_std, obs_std
 ) begin
-    # @number (static, diffs) T() = (return @arg T)
-
     # In the future we could have the number of aircrafts change over time;
     # for now we will assume it is fixed.
     @number (static, diffs) Aircraft() = (return num ~ poisson(@arg(mean_num_aircrafts)))
@@ -38,6 +36,7 @@ default_params = (
             y ~ uniform(-scale, scale)
         else
             (vxₜ, vyₜ) = @get(velocity[a, t])
+            # must explicitly use @abstract here due to bug in GenWorldModels
             (xₜ₋₁, yₜ₋₁) = @get(position[a, @abstract(Timestep(@index(t) - 1))])
             x ~ normal(xₜ₋₁ + vxₜ, @arg(pos_step_std))
             y ~ normal(yₜ₋₁ + vyₜ, @arg(pos_step_std))
@@ -50,6 +49,7 @@ default_params = (
             vx ~ uniform(-scale, scale)
             vy ~ uniform(-scale, scale)
         else
+            # must explicitly use @abstract here due to bug in GenWorldModels
             (vxₜ₋₁, vyₜ₋₁) = @get(velocity[a, @abstract(Timestep(@index(t) - 1))])
             vx ~ normal(vxₜ₋₁, @arg(vel_step_std))
             vy ~ normal(vyₜ₋₁, @arg(vel_step_std))
@@ -67,6 +67,7 @@ default_params = (
 
     @property (static) function blip_readings_at_time(t::Timestep)
         blips = @objects(Blip(Aircraft, t))
+        # TODO: include false positives
         
         # set of all readings at this time
         # assume that none of them take the same value, since positions are real values
