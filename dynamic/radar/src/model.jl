@@ -3,17 +3,20 @@
 @type Blip
 
 default_params = (
-    mean_num_aircrafts=8,
-    detection_prob=0.8,
-    false_positive_rate=2,
-    initial_pos_std=10.,
-    pos_step_std=0.5,
-    initial_vel_std=2.,
-    vel_step_std=0.8
+    mean_num_aircrafts=4,
+    detection_prob=0.99,
+    false_positive_rate=0.3,
+    # The initial x and y positions are ~uniform(-initial_pos_range_scale, initial_pos_range_scale)
+    initial_pos_range_scale=100,
+    pos_step_std=0.3,
+    # the initial x and y vels are ~ uniform(-initial_vel_range_scale, initial_vel_range_scale)
+    initial_vel_range_scale=4,
+    vel_step_std=0.5,
+    obs_std=0.5
 )
 @oupm radar_model(
     mean_num_aircrafts, detection_prob, false_positive_rate,
-    initial_pos_std, pos_step_std, initial_vel_std, vel_step_std
+    initial_pos_range_scale, pos_step_std, initial_vel_range_scale, vel_step_std, obs_std
 ) begin
     # @number (static, diffs) T() = (return @arg T)
 
@@ -30,29 +33,36 @@ default_params = (
     
     @property function position(a::Aircraft, t::Timestep)
         if @index(t) == 1
-            pos ~ normal(0, @arg(initial_pos_std))
+           scale = @arg(initial_pos_range_scale)
+            x ~ uniform(-scale, scale)
+            y ~ uniform(-scale, scale)
         else
-            vₜ = @get(velocity[a, t])
-            posₜ₋₁ = @get(position[a, Timestep(@index(t) - 1)])
-            pos ~ normal(posₜ₋₁ + vₜ, @arg(pos_step_std))
+            (vxₜ, vyₜ) = @get(velocity[a, t])
+            (xₜ₋₁, yₜ₋₁) = @get(position[a, @abstract(Timestep(@index(t) - 1))])
+            x ~ normal(xₜ₋₁ + vxₜ, @arg(pos_step_std))
+            y ~ normal(yₜ₋₁ + vyₜ, @arg(pos_step_std))
         end
-        return pos
+        return (x, y)
     end
     @property function velocity(a::Aircraft, t::Timestep)
         if @index(t) == 1
-            vel ~ normal(0, @arg(initial_vel_std))
+            scale = @arg(initial_vel_range_scale)
+            vx ~ uniform(-scale, scale)
+            vy ~ uniform(-scale, scale)
         else
-            vₜ₋₁ = @get(velocity[a, Timestep(@index(t) - 1)])
-            vel ~ normal(vₜ₋₁, @arg(vel_step_std))
+            (vxₜ₋₁, vyₜ₋₁) = @get(velocity[a, @abstract(Timestep(@index(t) - 1))])
+            vx ~ normal(vxₜ₋₁, @arg(vel_step_std))
+            vy ~ normal(vyₜ₋₁, @arg(vel_step_std))
         end
-        return vel
+        return (vx, vy)
     end
 
     @property (static) function noisy_position(b::Blip)
         (a, t) = @origin(b)
-        true_pos = @get(position[a, t])
-        reading ~ normal(true_pos, 1.0)
-        return reading
+        (true_x, true_y) = @get(position[a, t])
+        x_reading ~ normal(true_x, @arg(obs_std))
+        y_reading ~ normal(true_y, @arg(obs_std))
+        return (x_reading, y_reading)
     end
 
     @property (static) function blip_readings_at_time(t::Timestep)
