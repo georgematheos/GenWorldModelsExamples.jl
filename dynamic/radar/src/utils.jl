@@ -1,4 +1,27 @@
 endtime(tr) = get_args(tr)[end]
+getparams(tr) = get_args(tr)[1:end-1]
+
+struct IntBernoulli <: Gen.Distribution{Int} end
+const int_bernoulli = IntBernoulli()
+Gen.is_discrete(::IntBernoulli) = true
+Gen.has_output_grad(::IntBernoulli) = false
+Gen.has_argument_grads(::IntBernoulli) = (false, false)
+function Gen.random(::IntBernoulli, p)
+    Int(bernoulli(p))
+end
+function Gen.logpdf(::IntBernoulli, val, p)
+    Gen.logpdf(bernoulli, Bool(val), p)
+end
+
+params_to_nt((
+    mean_num_aircrafts, detection_prob, false_positive_rate,
+    initial_pos_range_scale, pos_step_std,
+    initial_vel_range_scale, vel_step_std, obs_std)) =
+    (;
+        mean_num_aircrafts, detection_prob, false_positive_rate,
+        initial_pos_range_scale, pos_step_std,
+        initial_vel_range_scale, vel_step_std, obs_std
+    )
 
 function trace_to_labeled_tracks(tr)
     num_objects = @get_number(tr, Aircraft())
@@ -21,7 +44,7 @@ function trace_to_labeled_tracks(tr)
                     (
                         object_idx  = a,
                         xy          = @get(tr, position[Aircraft(a), Timestep(t)]),
-                        is_detected = @get_number(tr, Blip(Aircraft(a), Timestep(t)))
+                        is_detected = Bool(@get_number(tr, Blip(Aircraft(a), Timestep(t))))
                     )
                 )
             end

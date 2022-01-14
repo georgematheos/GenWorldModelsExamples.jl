@@ -2,6 +2,8 @@
 @type Aircraft
 @type Blip
 
+_binary() = [0, 1]
+
 default_params = (
     mean_num_aircrafts=4,
     detection_prob=0.99,
@@ -13,19 +15,22 @@ default_params = (
     # the initial x and y vels are ~ uniform(-initial_vel_range_scale, initial_vel_range_scale)
     initial_vel_range_scale=4,
     vel_step_std=0.5,
-    obs_std=0.5
+    obs_std=5
 )
 @oupm radar_model(
     mean_num_aircrafts, detection_prob, false_positive_rate,
-    initial_pos_range_scale, pos_step_std, initial_vel_range_scale, vel_step_std, obs_std
+    initial_pos_range_scale, pos_step_std, initial_vel_range_scale, vel_step_std, obs_std,
+    T
 ) begin
+    @number (static, diffs) Timestep() = (return @arg(T))
+
     # In the future we could have the number of aircrafts change over time;
     # for now we will assume it is fixed.
     @number (static, diffs) Aircraft() = (return num ~ poisson(@arg(mean_num_aircrafts)))
 
     # real blip
     @number (static, diffs) function Blip(a::Aircraft, t::Timestep)
-        return num ~ bernoulli(@arg(detection_prob))
+        return num ~ int_bernoulli(@arg(detection_prob))
     end
     # false positive blip
     @number (static, diffs) Blip(::Timestep) = (return num ~ poisson(@arg(false_positive_rate)))
@@ -89,7 +94,8 @@ default_params = (
     end
 
     ## noisy detections observation model
-    @observation_model function noisy_detections(T)
+    @observation_model function noisy_detections()
+        T = length(@objects(Timestep))
         timesteps = [Timestep(t) for t=1:T]
         return @map [@get(blip_readings_at_time[t]) for t in timesteps]
     end
