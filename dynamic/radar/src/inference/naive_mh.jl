@@ -7,8 +7,6 @@ but it seemed to me that the inefficiency of naive MH was sufficiently demonstra
 giving the real number of aircrafts that there was no need.
 =#
 
-singleton(x) = [x]
-@dist exactly(x) = singleton(x)[categorical([1.0])]
 @dist uniform_from_list(list) = list[uniform_discrete(1, length(list))]
 
 # Generates an initial trace in which every blip is a false positive.

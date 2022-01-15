@@ -1,3 +1,6 @@
+singleton(x) = [x]
+@dist exactly(x) = singleton(x)[categorical([1.0])]
+
 @type Timestep
 @type Aircraft
 @type Blip
@@ -97,7 +100,13 @@ default_params = (
     @observation_model function noisy_detections()
         T = length(@objects(Timestep))
         timesteps = [Timestep(t) for t=1:T]
-        return @map [@get(blip_readings_at_time[t]) for t in timesteps]
+        readings = @map [@get(blip_readings_at_time[t]) for t in timesteps]
+        # include this in the choicemap so we can specify it as evidence and
+        # automatically reject any incorrect trace
+        for (t, readingset) in enumerate(readings)
+            {:_readings => t} ~ exactly(readingset)
+        end
+        return readings
     end
 
     ## rendered observation model
