@@ -59,35 +59,42 @@ end
 
 function naive_mh_pass(tr)
     T = endtime(tr)
+    num_mh_runs = 0
     # Update num aircraft, assigning 0 blips to each aircraft
     # tr, _ = mh(tr, update_num_aircrafts) #update_num_aircrafts, (getparams(tr),))
     
     # Change FP blips to real blips and real blips to FP blips
     for i=1:@get_number(tr, Aircraft())*T / 4
         tr, acc = mh(tr, swap_fp_real; check=false)
+        num_mh_runs += 1
     end
 
     # Update each position[a, t]
     for aircraft in @objects(tr, Aircraft()), t=1:T
         tr, acc = mh(tr, select(@addr(position[aircraft, Timestep(t)])))
+        num_mh_runs += 1
     end
     # Update each velocity[a, t]
     for aircraft in @objects(tr, Aircraft()), t=1:T
         tr, acc = mh(tr, select(@addr(velocity[aircraft, Timestep(t)])))
+        num_mh_runs += 1
     end
 
-    return tr
+    return (tr, num_mh_runs)
 end
 
 function naive_mh(tr, n_iters=1000, log_interval=100)
     println("Beginning naive MH inference...")
+    n_mh_runs = 0
     for i=1:n_iters
-        tr = naive_mh_pass(tr)
+        (tr, n_runs) = naive_mh_pass(tr)
+        n_mh_runs += n_runs
         if i % log_interval == 0
             println("Completed iteration $i.")
         end
     end
-    return tr
+    
+    return (tr, n_mh_runs)
 end
 
 function naive_mh_from_gt(gt_tr, args...; kwargs...)
