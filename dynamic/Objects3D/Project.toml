@@ -1,0 +1,18 @@
+name = "Objects3D"
+uuid = "2fdd68d5-908d-445b-a876-8fcc71f7f047"
+authors = ["George Matheos <georgematheos@gmail.com>"]
+version = "0.1.0"
+
+[deps]
+DynamicForwardDiff = "fe4ab2f8-f6ba-4905-aa0c-1342e36db709"
+FileIO = "5789e2e9-d7fb-5bc7-8068-2c6fae9b9549"
+FunctionalCollections = "de31a74c-ac4f-5751-b3fd-e18cd04993ca"
+GLRenderer = "d1e26eb4-c061-4a47-b8d4-4152ce573b03"
+Gen = "ea4f424c-a589-11e8-07c0-fd5c91b9da4a"
+GenDirectionalStats = "85d806fb-b5ca-4d38-9c94-d1c1a6747d55"
+GenTraceKernelDSL = "291bb3ad-7d9c-4053-a5d5-3e3d67792b79"
+GenWorldModels = "3540416b-6f6e-4f4e-9ce0-d5802f4ca5a4"
+InverseGraphics = "4b85a743-8232-4f48-902e-cd249a333b61"
+MeshCatViz = "3bb1c1c2-7757-4fec-887f-d291af7e88d4"
+MiniGSG = "888bd7f2-f8c6-44ef-b90f-8999fb25fa02"
+PoseComposition = "0a8ab332-79e8-43e0-a313-949ce1168071"
