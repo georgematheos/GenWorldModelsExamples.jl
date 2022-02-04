@@ -11,10 +11,13 @@ giving the real number of aircrafts that there was no need.
 
 # Generates an initial trace in which every blip is a false positive.
 generate_initial_trace_with_correct_number_of_aircrafts(gt_tr) =
-    generate_initial_trace_with_correct_number_of_aircrafts(get_retval(tr), @get_number(gt_tr, Aircraft()), getparams(gt_tr))
-function generate_initial_trace_with_correct_number_of_aircrafts(observed_blips, num_aircrafts, model_params)
-    initial_tr, _ = generate(radar_model, model_params, choicemap(
-        @set_number(Aircraft(), num_aircrafts),
+    generate_initial_trace_with_correct_number_of_aircrafts(
+        get_retval(tr), @get_number(gt_tr, Aircraft()), getparams(gt_tr), endtime(gt_tr)
+    )
+function generate_initial_trace_with_correct_number_of_aircrafts(observed_blips, num_aircrafts, model_params, T)
+    pair = @set_number(Aircraft(), num_aircrafts)
+    initial_tr, _ = generate(radar_model, (model_params..., T), choicemap(
+        pair,
         (
             @set_number(Blip(Aircraft(a), Timestep(t)), false)
             for a=1:num_aircrafts for t=1:length(observed_blips)

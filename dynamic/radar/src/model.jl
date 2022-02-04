@@ -7,6 +7,20 @@ singleton(x) = [x]
 
 _binary() = [0, 1]
 
+tight_params = (
+    mean_num_aircrafts=4,
+    detection_prob=0.99,
+    false_positive_rate=0.3,
+    # The initial x and y positions are ~uniform(-initial_pos_range_scale, initial_pos_range_scale)
+    # False positives are also uniform in this range.
+    initial_pos_range_scale=100,
+    pos_step_std=0.3,
+    # the initial x and y vels are ~ uniform(-initial_vel_range_scale, initial_vel_range_scale)
+    initial_vel_range_scale=4,
+    vel_step_std=0.5,
+    obs_std=0.5
+)
+
 default_params = (
     mean_num_aircrafts=4,
     detection_prob=0.99,
